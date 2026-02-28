@@ -1,0 +1,1070 @@
+---
+title: "Analisi del Mercato Immobiliare del Texas"
+format: html
+df-print: kable
+editor: visual
+toc: true
+toc-depth: 3
+toc-expand: 3
+number-sections: true
+---
+
+# Analisi delle variabili
+
+Questa analisi ha l'obiettivo di informare il business per:
+
+-   ottimizzare le strategie di vendita, tramite ad esempio l'individuazione di nuove opportunità di crescita
+
+-   valutare l'efficacia degli annunci gestiti
+
+## Il dataset analizzato
+
+Il dataset analizzato per estrarre le informazioni contenute in questo report è il Real Estate Texas.csv
+
+```{r}
+
+setwd("~/ProfessionAI - Data Science/02_Statistica descrittiva/Progetto")
+texas_sale = read.csv("realestate_texas.csv", sep = ",")
+
+```
+
+### Le librerie
+
+Le librerie utilizzate per condurre l'analisi sono state
+
+```{r, message=FALSE, warning=FALSE}
+#1 
+library(ggplot2)
+#2
+library(moments)
+#3 
+library(dplyr)
+#4
+library(lubridate)
+#5
+library(patchwork)
+```
+
+rispettivamente per:
+
+1.  Creazione avanzata di grafici
+
+2.  Calcolo degli indici di varibilità
+
+3.  Manipolazione avanzata dei dati
+
+### Le variabili
+
+Al fine di facilitare il lettore che volesse condurre ulteriori verifiche sul dataset, di seguito una breve descrizione delle varibili in esso contenute:
+
+-   **city**: variabile qualitativa nominale che indica le città oggetto di analisi. Assume i seguenti valori
+
+```{r, echo=FALSE}
+levels(factor(texas_sale$city))
+```
+
+-   **year**: variabile quantitativa discreta su scala di intervalli che indica l'anno di riferimento. Assume i seguenti valori
+
+```{r, echo=FALSE}
+levels(factor(texas_sale$year))
+```
+
+-   **month**: nonostante sia popolata nel dataset con valori numerici, la si intende come codifica di una variabile qualitativa ordinale associata ai mesi dell'anno. Assume pertanto i seguenti valori
+
+```{r, echo=FALSE}
+levels(factor(texas_sale$month))
+```
+
+-   **sales**: variabile quantitativa discreta su scala di rapporti che indica il numero di vendite effettuate nel periodo (year-month) di riferimento. Questo il suo range
+
+```{r}
+max(texas_sale$sales)
+min(texas_sale$sales)
+
+max(texas_sale$sales)-min(texas_sale$sales)
+```
+
+-   **volume**: variabile quantitativa continua su scala di rapporti che indica il valore totale (in milioni di dollari) delle vendite (sales) effettuate nel periodo (year-month) di riferimento. Questo il suo range
+
+```{r}
+max(texas_sale$volume)
+min(texas_sale$volume)
+
+max(texas_sale$volume)-min(texas_sale$volume)
+```
+
+-   **median_price**: variabile quantitativa continua su scala di rapporti che indica il prezzo mediano di vendita (in dollari). Questo il suo range
+
+```{r}
+max(texas_sale$median_price)
+min(texas_sale$median_price)
+
+max(texas_sale$median_price)-min(texas_sale$median_price)
+```
+
+-   **listings**: variabile quantitativa discreta su scala di rapporti che indica il numero totale di annunci attivi. Questo il suo range
+
+```{r}
+max(texas_sale$listings)
+min(texas_sale$listings)
+
+max(texas_sale$listings)-min(texas_sale$listings)
+```
+
+-   **months_inventory**: variabile quantitativa continua su scala di rapporti che indica il numero di mesi necessari per vendere tutte le inserzioni correnti. Questo il suo range
+
+```{r}
+max(texas_sale$months_inventory)
+min(texas_sale$months_inventory)
+
+max(texas_sale$months_inventory)-min(texas_sale$months_inventory)
+```
+
+### Considerazioni sulle variabili
+
+Le variabili temporali, come year e month saranno utili per poter fare confronti storici in tutto l'arco del tempo presente nel dataset, vale a dire da gennaio 2010 a dicembre 2014. Si prestano bene per questo tipo di analisi le vendite (sales) o i volumi (volume), previa verifica che le 2 variabili siano utilizzabili alternativamente presentando gli stessi andamenti.
+
+Si può inoltre valutare le vendite alla luce dell'andamento storico degli annunci gestiti (listings) e valutare così l'efficacia di vendita.
+
+Si può utilizzare le varibili qualitative per effettuare confronti tra le città (city) ad esempio e valutare se ci siano mercati promettenti. Il confronto dei volumi sui mesi può indicarci la presenza di cicli o stagionalità nella vendita delle case, sempre tenendo conto delle diverse città.
+
+Come gli annunci possono essere un indicatore di efficacia nella vendita, la variabile months_inventory può essere invece un indicatore di efficienza e lo si può pertanto studiare per individuare potenziali problemi o casi virtuosi.
+
+# Gli indici
+
+Di seguito verranno calcolati gli indici di posizione, variabilità e forma per iniziare a trarre le prime conclusioni sullo studio delle variabili
+
+## Gli indici di posizione
+
+Gli indici di posizione danno un primo livello di informazione sulle variabili, fornendo dati come la media, mediana, moda e i quartili.
+
+Per le variabili qualitative non verrà condotta una distribuzione di frequenza poichè non avrebbe senso per come il dataset è costruito. Esiste difatti una riga per ogni combinazione città-mese-anno e quindi sia le città, che i mesi che gli anni sono equidistribuiti.
+
+Per le variabili quantitative invece, di seguito una tabella che mostra per ciascuna variabile i relativi indici di posizione.
+
+```{r}
+#| label: tbl-position
+#| tbl-cap: "Indici di posizione"
+
+pos_sales = summary(texas_sale$sales)
+pos_volume = summary(texas_sale$volume)
+pos_median_price = summary(texas_sale$median_price)
+pos_listings = summary(texas_sale$listings)
+pos_months_inventory = summary(texas_sale$months_inventory)
+
+pos_global = data.frame(cbind(pos_sales,pos_volume,pos_median_price,pos_listings,pos_months_inventory))
+
+pos_global
+```
+
+## Gli indici di variabilità
+
+Gli indici di variabilità forniscono un secondo livello di informazioni sulle variabili, in particolare indicano quanto esse siano disperse o concentrate attorno al valore medio.
+
+Di seguito una tabella che raccoglie, per ogni variabile quantitativa, gli indici di variabilità corrispettivi.
+
+```{r,warning=FALSE}
+#| label: tbl-variability
+#| tbl-cap: "Indici di Variabilità"
+
+
+quant_rownames = c("sales", "volume", "median_price", "listings", "months_inventory")
+
+range = c(max(texas_sale$sales)-min(texas_sale$sales),
+                 max(texas_sale$volume)-min(texas_sale$volume),
+                 max(texas_sale$median_price)-min(texas_sale$median_price),
+                 max(texas_sale$listings)-min(texas_sale$listings),
+                 max(texas_sale$months_inventory)-min(texas_sale$months_inventory))
+
+IQR = c(pos_global$pos_sales[5]-pos_global$pos_sales[2],
+               pos_global$pos_volume[5]-pos_global$pos_volume[2],
+               pos_global$pos_med_prc[5]-pos_global$pos_med_prc[2],
+               pos_global$pos_list[5]-pos_global$pos_list[2],
+               pos_global$pos_minv[5]-pos_global$pos_minv[2])
+
+
+variance = c(var(texas_sale$sales),
+               var(texas_sale$volume),
+               var(texas_sale$median_price),
+               var(texas_sale$listings),
+               var(texas_sale$months_inventory))
+
+standard_dev = sqrt(variance)
+
+variation_index = c(sd(texas_sale$sales)/mean(texas_sale$sales),
+                  sd(texas_sale$volume)/mean(texas_sale$volume),
+                  sd(texas_sale$median_price)/mean(texas_sale$median_price),
+                  sd(texas_sale$listings)/mean(texas_sale$listings),
+                  sd(texas_sale$months_inventory)/mean(texas_sale$months_inventory))
+
+
+VARIATION_global = data.frame(
+  cbind(range,IQR,variance,standard_dev,variation_index),
+  row.names = quant_rownames)
+
+VARIATION_global
+```
+
+## Indici di forma
+
+Gli indici di forma forniscono informazioni sulla forma della distribuzione, indicando quanto essa sia asimmetrica, con il vertice della campana dunque spostato verso sinistra o destra rispetto a una gaussiana standard, oppure quanto tale vertice si alzi o abbassi rispetto a una gaussiana standard.
+
+Di seguito una tabella con l'indice di asimmetria e curtosi per ogni variabile
+
+```{r}
+#| label: tbl-shape
+#| tbl-cap: "Indici di forma"
+
+symmetry_index = c(skewness(texas_sale$sales),
+                    skewness(texas_sale$volume),
+                    skewness(texas_sale$median_price),
+                    skewness(texas_sale$listings),
+                    skewness(texas_sale$months_inventory))
+
+kurtosis_index = c(kurtosis(texas_sale$sales),
+                    kurtosis(texas_sale$volume),
+                    kurtosis(texas_sale$median_price),
+                    kurtosis(texas_sale$listings),
+                    kurtosis(texas_sale$months_inventory))-3
+
+shape_global = data.frame(cbind(symmetry_index,
+                                kurtosis_index),
+                          row.names = quant_rownames)
+
+shape_global
+
+```
+
+## Conclusioni
+
+Dagli indici di variabilità @tbl-variability, osservando l'indice di variazione che aiuta nel confronto tra variabili diverse, si deduce che la variabile che presenta il più alto indice di "allontanamento" rispetto ai valori medi è volume.
+
+Giudicando gli indici di posizione, @tbl-position, per sales e volume, si nota che per entrambi la media sia superiore alla mediana: questo potrebbe suggerire una distribuzione con asimmetria positiva. Maggiori informazioni su questo punto nel capitolo successivo
+
+# Variabili con maggiore asimmetria
+
+Come si può vedere dalla @tbl-shape, la skewness maggiore, in valore assoluto, è associata alla la variabile volume, subito seguita dalla variabile sales.
+
+Essendo la skewness positiva, questo ci indica che la variabile è descritta da una distribuzione decentrata verso sinistra rispetto a una gaussiana standard.
+
+A conferma di ciò, di seguito il grafico di densità di entrambe che mostra una distribuzione asimmetrica verso sinistra.
+
+```{r, echo=FALSE}
+data_density_sales = c(mean(texas_sale$sales),median(texas_sale$sales))
+density_data_sales = data.frame(data_density_sales)
+
+ggplot(data = texas_sale)+
+  geom_density(aes(x=sales),
+               colour = "blue",
+               fill = "lightblue",
+               alpha = 0.5)+
+  geom_vline(xintercept = data_density_sales,
+             colour = "red4")+
+  theme_light()+
+  labs(title = "Densità della variabile sales",
+       y = "Densità",
+       x = "Sales")+
+  geom_label(data = density_data_sales,
+             aes(x=data_density_sales+c(-34,38), y=0.0055, 
+                 label = c("Media", "Mediana")),
+             colour = "red4")
+```
+
+```{r, echo=FALSE}
+data_density_volume = c(mean(texas_sale$volume), median(texas_sale$volume))
+density_dataframe_volume = data.frame(data_density_volume)
+
+ggplot(data = texas_sale)+
+  geom_density(aes(x=volume),
+               colour = "blue",
+               fill = "lightblue",
+               alpha = 0.5)+
+  geom_vline(xintercept = data_density_volume,
+             colour = "red4")+
+  geom_label(data = density_dataframe_volume,
+             aes(x=data_density_volume+c(-8,9), y = 0.028, 
+                 label = c("Media", "Mediana")),
+             colour = "red4")+
+  labs(title = "Densità della variabile volume",
+       x = "Volume",
+       y = "Densità")+
+  theme_light()
+```
+
+# Classi per una variabile quantitativa
+
+Essendo la variabile volume quella a maggiore variabilità e asimmetria, si concentra ulteriormente l'analisi su di essa dividendola in classi e creandone una distribuzione di frequenza.
+
+```{r}
+#| label: tbl-dfVol
+#| tbl-cap: "Distribuzione di frequenza della variabile volume"
+
+texas_sale$vol_CL = cut(texas_sale$volume,breaks = seq(5,85,10))
+
+ni = table(texas_sale$vol_CL)
+fi = ni/length(texas_sale$vol_CL)
+Ni = cumsum(ni)
+Fi = cumsum(fi)
+
+df_vol_CL = data.frame(cbind(ni,fi,Ni,Fi))
+
+df_vol_CL
+
+```
+
+La distribuzione delle frequenze delle classi continua a mostrare, come atteso, un'asimmetria verso sinistra con picco tra i **15 e i 25** milioni di dollari.
+
+```{r, echo=FALSE}
+#| label: fig-barCLVol
+
+
+ggplot(data = texas_sale, aes(x=vol_CL))+
+  geom_bar(fill = "blue4",
+           alpha = 0.7)+
+  labs(title = "Distribuzione delle classi di volume",
+       x = "Classi della variabile volume",
+       y = "Conteggio delle occorrenze")+
+  theme_light()
+```
+
+## Indice di eterogeneità di Gini
+
+L'indice di eterogeneità di Gini è un indicatore compreso tra 0 e 1 che sta ad indicare quanto la variabile sia equamente distribuita all'interno delle classi.
+
+Questa è la formula per calcolarlo
+
+$$
+G' = \frac{G}{\frac{j-1}{j}}
+$$
+
+Dove G
+
+$$
+G = 1 - \sum_{i=1}^{j}f{i}^2
+$$
+
+Con "fi" si intendono le probabilità di ciascuna classe come indicato nella seconda colonna della tabella @tbl-dfVol
+
+Pertanto, l'indice di Gini per la variabile volume divisa in classi, risulta:
+
+```{r}
+
+G = 1 - sum(df_vol_CL$fi^2)
+Gini_index = (G*length(df_vol_CL$fi))/(length(df_vol_CL$fi)-1)
+
+Gini_index
+
+```
+
+Nonostante la distribuzione sia asimmetrica verso sinistra, l'indice di Gini è molto prossimo a 1, indicando un'equidistribuzione tra le classi. Evidentemente lo sbilanciamento verso sinistra è compensato dalle più basse frequenze verso destra e le due tendenze finiscono con il bilanciarsi.
+
+# Calcolo delle probabilità
+
+Utilizzando l'approccio frequentista, per cui la probabilità che un evento si verifichi è data dal numero di casi possibili in cui si può verificare diviso i casi totali, si procede a calcolare le seguenti probabilità
+
+## Estrarre la città Beaumont
+
+Qual è la probabilità che, presa una riga a caso dal dataset, essa riporti la città di Beaumont?
+
+Calcolando la distribuzione di frequenze per la variabile city del dataset si vede che:
+
+```{r}
+#| label: tbl-dfcity
+#| tbl-cap: "Distribuzione di frequenze della variabile city" 
+
+n = length(texas_sale$city)
+ni_city = table(texas_sale$city)
+fi_city = ni_city/n
+Ni_city = cumsum(ni_city)
+Fi_city = cumsum(fi_city)
+
+df_city = data.frame(cbind(ni_city,fi_city,Ni_city,Fi_city))
+
+df_city
+```
+
+ogni città ha esattamente il 25% di probabilità di essere estratta e questo ha assolutamente senso, visto come è costruito il dataset.
+
+## Estrarre il mese di luglio
+
+Qual è la probabilità che, presa una riga a caso dal dataset, essa riporti il mese di luglio?
+
+Calcolando la distribuzione di frequenza della variabile month si ha che:
+
+```{r}
+#| label: tbl-dfmonth
+#| tbl-cap: "Distribuzione di frequenze della variabile month"
+
+ni_month = table(texas_sale$month)
+fi_month = ni_month/n
+Ni_month = cumsum(ni_month)
+Fi_month = cumsum(fi_month)
+
+months_id = levels(factor(texas_sale$month))
+
+df_month = data.frame(cbind(ni_month,fi_month,Ni_month,Fi_month),row.names = months_id)
+
+df_month
+```
+
+ogni mese ha esattamente una probabilità di 8,3% di essere estratto e come per le città, questo è assolutamente coerente con la costruzione del dataset.
+
+## Estrarre dicembre 2012
+
+Come per i casi precedenti, anche in questo caso possiamo calcolare la probabilità come il numero di righe riportanti dicembre 2012, diviso il numero di righe totali.
+
+Il risultato è:
+
+```{r}
+prob_1212 = length(which(texas_sale$year==2012 & texas_sale$month==12))/length(texas_sale$year)
+
+prob_1212
+```
+
+circa 1,7% di probabilità
+
+# Creazione di nuove variabili
+
+In questo capitolo si descrive la creazione di nuove variabili che diano ulteriori informazioni sull'andamento dei prezzi medi unitari e delle performance di vendita
+
+## Prezzo medio unitario
+
+Essendo disponibili all'interno del dataset le variabili volume e sales, possiamo calcolare un prezzo medio unitario, vale a dire prezzo/vendita, mettendole a rapporto.
+
+$$
+P_{mu}(month,year)=\frac{Volume}{Sales}
+$$
+
+```{r}
+texas_sale$unipr_sale = (texas_sale$volume*10^6)/texas_sale$sales
+```
+
+## Efficacia degli annunci di vendita
+
+Per quanto riguarda l'efficacia degli annunci di vendita invece, si può rapportare la variabile sales alla variabile listings.
+
+Ne risulta un indicatore che indica quante vendite sono state effettuate nel periodo mese-anno sulla base degli annunci attivi. L'indicatore potrà essere al più 1, assumendo di non fare più vendite degli annunci attivi gestiti, o 0 in caso di nessuna vendita.
+
+$$
+Eff_{v}(month,year)=\frac{Sales}{Listings}
+$$
+
+```{r}
+texas_sale$list_efficacy = texas_sale$sales/texas_sale$listings
+```
+
+## Conclusioni
+
+### Efficacia degli annunci {#sec-efficacia-degli-annunci}
+
+Analizzando la serie storica dell'efficacia degli annunci, risulta chiaro che Bryan-College_Station (da ora in avanti B-C-S) sia la città che nel tempo sia riuscita a gestire meglio la vendita e l'efficacia degli annunci stessi. Soprattutto nel 2014 ha nettamente staccato le altre città arrivando a totalizzare un numero di vendite pari quasi al 40% degli annunci gestiti.
+
+```{r}
+texas_sale$date_full = make_date(month = texas_sale$month, year = texas_sale$year)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+#| label: fig-listefficacy
+
+ggplot(data = texas_sale, aes(x=date_full,group = city))+
+  geom_line(aes(y=list_efficacy, colour = city))+
+  scale_x_date(date_breaks = "6 months",
+               date_labels = "%m%Y")+
+  theme_light()+
+  theme(legend.position = "bottom")+
+  labs(title = "Serie storica dell'efficacia degli annunci di vendita",
+       x = "Date",
+       y = "Efficacia degli annunci")
+```
+
+Gli andamenti dell'efficacia diventano ancora più chiari visualizzando le serie isolate per città
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+#| label: fig-facetefficacy
+
+ggplot(data = texas_sale, aes(x=date_full,group = city))+
+  geom_line(aes(y=list_efficacy, colour = city))+
+  facet_wrap(~city)+
+  geom_smooth(aes(y=list_efficacy),
+              size = .6)+
+  theme_linedraw()+
+  theme(legend.position = "bottom")+
+  labs(title = "Efficacia degli annunci di vendita isolata per città",
+       x = "Date",
+       y = "Efficacia degli annunci")
+```
+
+Risulta ora molto più chiaro quanto Bryan-College-Station sia efficace nella vendita, quanto Wichita Falls sia di fatto stazionaria, mentre Beaumont e Tyler accennino a un lieve incremento.
+
+Possiamo comunque concludere, a livello generalizzato, che la percentuale di conversione, escludendo l'ultimo periodo di B-C-S, sia comunque piuttosto bassa. Vengono gestiti molti annunci ma finalizzati pochi. Sarebbe opportuno condurre un'indagine più estesa per capire se le percentuali di conversione siano in realtà in linea con le medie di altre zone paragonabili.
+
+### Prezzo unitario {#sec-prezzo-unitario}
+
+Dalla serie storica dei prezzi medi unitari per vendita, si nota un andamento piuttosto fluttuante dei prezzi, con molti picchi e valli che si susseguono in maniera ravvicinata e senza un particolare schema osservabile.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+#| label: fig-unipricehistory
+
+ggplot(data = texas_sale, aes(x=date_full,group = city))+
+  geom_line(aes(y=unipr_sale, colour = city))+
+  theme_light()+
+  labs(title = "Serie storica dei prezzi medi unitari",
+       x = "Date",
+       y = "Prezzo medio unitario ($)")+
+  theme(legend.position = "bottom")
+```
+
+Con la visione isolata per città, possiamo aggiungere qualche ulteriore considerazione circa il trend, che diventa maggiormente visibile.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+#| label: fig-facetuniprice
+
+ggplot(data = texas_sale, aes(x=date_full,group = city))+
+  geom_line(aes(y=unipr_sale, colour = city))+
+  facet_wrap(~city)+
+  geom_smooth(aes(y=unipr_sale),
+              size = .6)+
+  theme_linedraw()+
+  theme(legend.position = "bottom")
+```
+
+Si nota infatti come sia Beaumont che Wichita Falls abbiano un andamento allineato con l'efficacia degli annunci e sostanzialmente stabile nell'arco dell'orizzonte temporale osservato.
+
+Tyler e B-C-S presentano un aumento dei prezzi quasi allineato, con B-C-S che però risulta essere tendenzialmente superiore, anche se di poco. Il divario tra i 2 si amplia soprattutto nell'ultimissimo periodo osservato dove B-C-S riesce a praticare prezzi nettamente più alti di Tyler.
+
+Diventa a questo punto importante, per avere un'immagine completa su efficacia e prezzo medio unitario, andare a indagare la variabile listings e la relazione tra volume e sales (cfr. sezioni successive) per scongiurare la presenza di eventuali casistiche in cui la recessione delle vendite non abbia portato a una pari recessione nei volumi (per via di prezzi eccessivamente alti magari).
+
+# Analisi condizionata
+
+Proseguiamo nell'approfondimento iniziando da 2 variabili cruciali a questo punto, essendo il cardine su cui ruota il business: sales e volume.
+
+In particolare si forniranno delle sintesi per città, anno e mese di media e deviazione standard.
+
+## Città
+
+```{r, echo=FALSE}
+#| label: tbl-condcity
+#| tbl-cap: "Media e deviazione standard di volume e sales per città"
+
+
+cond_city = texas_sale %>%
+  select(city,sales,volume) %>%
+  group_by(city) %>%
+  summarise("Media sales"=mean(sales),
+            "Deviazione Std sales"= sd(sales),
+            "Media volume" = mean(volume),
+            "Deviazione Std volume" = sd(volume))
+
+cond_city
+```
+
+```{r, echo=FALSE}
+#| label: fig-conditionedcity
+#| fig-cap: "Distribuzione di media e deviazione standard, per città, delle variabili sales e volume"
+
+cc1 = ggplot(data = cond_city, aes(x = city, y = `Deviazione Std volume`))+
+  geom_col(fill = "blue4",
+           alpha = 0.7)+
+  theme_linedraw()+
+  scale_x_discrete(guide = guide_axis(n.dodge = 2))
+  
+
+cc2 = ggplot(data = cond_city, aes(x = city, y = `Media volume`))+
+  geom_col()+
+  geom_col(fill = "red2",
+           alpha = 0.7)+
+  theme_linedraw()+
+  scale_x_discrete(guide = guide_axis(n.dodge = 2))
+
+cc3 = ggplot(data = cond_city, aes(x = city, y = `Deviazione Std sales`))+
+  geom_col(fill = "blue4",
+           alpha = 0.7)+
+  theme_linedraw()+
+  scale_x_discrete(guide = guide_axis(n.dodge = 2))
+
+
+cc4 = ggplot(data = cond_city, aes(x = city, y = `Media sales`))+
+  geom_col()+
+  geom_col(fill = "red2",
+           alpha = 0.7)+
+  theme_linedraw()+
+  scale_x_discrete(guide = guide_axis(n.dodge = 2))
+
+(cc1 + cc2) /
+(cc3 + cc4)
+```
+
+B-C-S risulta essere la città con la maggiore deviazione standard rispetto alla variabile volume, questo implica una maggiore volatilità della stessa rispetto alla media. In parole povere, varia molto il volume di vendita. Segue Tyler. Staccate di molto invece Beaumont e Wichita Falls in cui c'è poco scostamento rispetto alla media, e in particolare Wichita Falls è circa un 50% in meno rispetto a Beaumont. Queste ultime 2 città sembrano dunque presentare un mercato molto più stabile e prevedibile.
+
+Sulla media di volume le considerazione sono quasi le stesse tranne che Tyler presenta una media più alta di B-C-S. Questo ci dice che evidentemente le minori fluttuazioni, soprattutto in basso, aiutano a realizzare mediamente fatturati più alti.
+
+Per sales riscontriamo gli stessi andamenti di volume e di conseguenze si possono trarre le medesime conclusioni.
+
+Ritorna a questo punto il tema della relazione che si indagherà più avanti tra sales e volume.
+
+## Mese
+
+```{r, echo=FALSE}
+#| label: tbl-condmonth
+#| tbl-cap: "Media e deviazione standard di volume e sales per mese"
+
+
+cond_month = texas_sale %>%
+  select(month,sales,volume) %>%
+  group_by(month) %>%
+  summarise("Media sales"=mean(sales),
+            "Deviazione Std sales"= sd(sales),
+            "Media volume" = mean(volume),
+            "Deviazione Std volume" = sd(volume))
+
+cond_month
+
+```
+
+```{r, echo=FALSE}
+#| label: fig-conditionedmonth
+#| fig-cap: "Distribuzione di media e deviazione standard, per mese, delle variabili sales e volume"
+
+
+cm1 = ggplot(data = cond_month, aes(x = month, y = `Deviazione Std volume`))+
+  geom_col(fill = "blue4",
+           alpha = 0.7)+
+  theme_linedraw()
+
+
+cm2 = ggplot(data = cond_month, aes(x = month, y = `Media volume`))+
+  geom_col()+
+  geom_col(fill = "red2",
+           alpha = 0.7)+
+  theme_linedraw()
+
+cm3 = ggplot(data = cond_month, aes(x = month, y = `Deviazione Std sales`))+
+  geom_col(fill = "blue4",
+           alpha = 0.7)+
+  theme_linedraw()
+
+
+cm4 = ggplot(data = cond_month, aes(x = month, y = `Media sales`))+
+  geom_col()+
+  geom_col(fill = "red2",
+           alpha = 0.7)+
+  theme_linedraw()
+
+
+
+
+(cm1 + cm2) /
+(cm3 + cm4)
+```
+
+Volumi e vendite mostrano un'aumento nei primi mesi dell'anno fino al picco in giugno/luglio, da cui si va a decrescere fino a fine anno (lieve eccezione in dicembre).
+
+Da questo possiamo dunque concludere che il mercato immobiliare nelle città analizzate sia fortemente stagionale.
+
+Degno di nota è il fatto che la deviazione standard segua pedissecuamente lo stesso andamento delle medie. Sostanzialmente più si avanza nell'anno verso il picco di vendite, più si vanno a chiudere prezzi più in alto e più in basso rispetto la media, con conseguente aumento della dispersione attorno alla media.
+
+Infatti, questo è quello che succede al range del volume di vendita al proseguire dei mesi.
+
+```{r, echo=FALSE}
+#| label: fig-boxplotvolmonth
+
+ggplot(data = texas_sale)+
+  geom_boxplot(aes(x=factor(month), y=volume, group = month),
+               fill = "lightblue1")+
+  labs(title = "Dispersione dei volumi di vendita per mese",
+       x = "Mese",
+       y = "Volumi di vindita (M$)")+
+  theme_linedraw()
+```
+
+## Anno
+
+```{r, echo=FALSE}
+#| label: tbl-condyear
+#| tbl-cap: "Media e deviazione standard di volume e sales per anno"
+
+cond_year = texas_sale %>%
+  select(year,sales,volume) %>%
+  group_by(year) %>%
+  summarise("Media sales"=mean(sales),
+            "Deviazione Std sales"= sd(sales),
+            "Media volume" = mean(volume),
+            "Deviazione Std volume" = sd(volume))
+
+cond_year
+```
+
+Anche sugli anni, dal 2010 al 2014, si assiste ad un progressivo aumento delle vendite, che ancora una volta vanno di pari passo con i volumi.
+
+```{r, echo=FALSE}
+#| label: fig-conditionedyear
+#| fig-cap: "Distribuzione di media e deviazione standard, per anno, delle variabili sales e volume"
+
+
+cy1 = ggplot(data = cond_year, aes(x = year, y = `Deviazione Std volume`))+
+  geom_col(fill = "blue4",
+           alpha = 0.7)+
+  theme_linedraw()
+
+
+cy2 = ggplot(data = cond_year, aes(x = year, y = `Media volume`))+
+  geom_col()+
+  geom_col(fill = "red2",
+           alpha = 0.7)+
+  theme_linedraw()
+
+cy3 = ggplot(data = cond_year, aes(x = year, y = `Deviazione Std sales`))+
+  geom_col(fill = "blue4",
+           alpha = 0.7)+
+  theme_linedraw()
+
+
+cy4 = ggplot(data = cond_year, aes(x = year, y = `Media sales`))+
+  geom_col()+
+  geom_col(fill = "red2",
+           alpha = 0.7)+
+  theme_linedraw()
+
+
+
+
+(cy1 + cy2) /
+  (cy3 + cy4)
+
+```
+
+Esattamente come visto nell'analisi condizionata per mesi, all'aumentare dei volumi di vendita, segue un corrispondente aumento della deviazione standard.
+
+Potrebbe essere dovuto al fatto che probabilmente si sia ampliata l'offerta di vendita andando a coprire immobili di fasce di prezzo meno concentrate, così da andare a prendere una fetta più ampia di domanda.
+
+# Grafici di approfondimento
+
+In questa sezione andiamo in profondità sui dati cercando di ampliare le informazioni già raccolte e indagando per trovarne di nuove.
+
+## sales vs volume
+
+Come indicato nel paragrafo @sec-prezzo-unitario risulta importante comprendere che la relazione tra sales e volumi non presenti stranezze, ma sia lineare.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(data = texas_sale, aes(x=sales, y=volume))+
+  geom_point(colour = "orange1")+
+  geom_smooth()+
+  theme_light()+
+  labs(title = "Distribuzione sales/volume",)
+```
+
+Dal grafico si vede chiaramente che nel campione analizzato all'interno del dataset non esistono situazioni anomale per cui le vendite siano rimaste stabili (o addirittura calate) a fronte di un aumento dei volumi. Questo scongiura la presenza di prezzi eccessivamente alti e bolle speculative che avrebbero chiaramente portato a considerazioni diverse sui risultati di questa analisi.
+
+Alla luce di quanto emerso in questa sezione, da qui in avanti ci si concentrerà sempre sulla variabile volume.
+
+## volume vs listings
+
+Sempre nel paragrafo @sec-prezzo-unitario, si indicava un'altra relazione da indagare: quella tra gli annunci e il volume di vendita.
+
+Il fine è scoprire possibili tendenze e peculiarità dei diversi mercati rappresentati dalle diverse città.
+
+```{r, echo=FALSE}
+#| label: fig-listvsvolume
+#| fig-cap: "Distribuzione dei volumi in base agli annunci"
+
+ggplot(data = texas_sale, aes(x=listings, y=volume, colour = city))+
+  geom_point()+
+  theme_light()+
+  labs(title = "Distribuzione dei volumi di vendita in base agli annunci",
+       y = "Volumi di vendita",
+       x = "Annunci")+
+  theme(legend.position = "bottom")
+```
+
+Dal grafico si nota varie cose:
+
+-   La stabilità e concentrazione di Wichita Falls e Beaumont, come già ipotizzato nel paragrafo @sec-efficacia-degli-annunci. I volumi infatti si concentrano tutti su un numero ben definito di annunci gestiti
+
+-   I volumi di vendita di B-C-S sono più dispersi rispetto a Tyler come già verificato in @fig-conditionedcity
+
+-   I volumi di vendita di B-C-S e Tyler sono racchiusi da intervalli di medesima ampiezza: tra 20 e 80 milioni di dollari
+
+-   B-C-S riesce a gestire questi volumi con un range di annunci che va dai 1000 ai 2000 mentre Tyler tra i 2300 e i 3300.
+
+```{r, echo=FALSE}
+#| label: fig-listvsvolumesep
+
+list_intercept = data.frame(sep=c(1000,2000,2300,3300))
+volume_intercept = data.frame(vol_sep = c(20,80))
+
+ggplot(data = texas_sale, aes(x=listings, y=volume, colour = city))+
+  geom_point()+
+  theme_light()+
+  labs(title = "Distribuzione dei volumi di vendita in base agli annunci",
+       y = "Volumi di vendita",
+       x = "Annunci")+
+  theme(legend.position = "bottom")+
+  geom_hline(yintercept = volume_intercept$vol_sep,
+             colour = "red3")+
+  geom_vline(xintercept = list_intercept$sep,
+             colour = "red3")
+```
+
+Il concetto chiave rappresentato da questo grafico è che B-C-S riesce a totalizzare gli stessi volumi di vendita, ma con molti meno annunci gestiti.
+
+Potrebbe essere una migliore efficacia di vendita o anche una diversa propensione all'acquisto o una combinazione delle 2 cose.
+
+## Analisi di dettaglio sui volumi
+
+La serie storica dei volumi chiarisce ancora meglio quanto mostrato nel grafico @fig-listvsvolume
+
+Ci si aspetta dunque di avere B-C-S e Tyler che conducono con alti volumi, B-C-S con una maggiore variabilità e Wichita Falls con Beaumont fanalini di coda stabili.
+
+```{r, echo=FALSE}
+#| label: fig-volhistory
+
+ggplot(data = texas_sale, aes(x=date_full, y=volume,colour = city, group = city))+
+  geom_line()+
+  scale_x_date(date_breaks = "6 months",
+               date_labels = "%m/%Y")+
+  theme_linedraw()+
+  theme(legend.position = "bottom")+
+  labs(title = "Serie storica dei volumi di vendita per città",
+       y = "Volumi di vendita",
+       x = "Date")
+```
+
+Inoltre, con il successivo grafico si va a rendere ancora più esplicito quanto mostrato nel paragrafo @sec-efficacia-degli-annunci, mostrando affiancati i volumi e gli annunci gestiti, che affrontando il tema dell'efficacia erano affogati nel medesimo calcolo.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+#| label: vol&listwrap
+
+
+hv = ggplot(data = texas_sale, aes(x=date_full, y=volume, colour = city, group = city))+
+  geom_line()+
+  facet_wrap(~city)+
+  geom_smooth(aes(y=volume),
+              size = 0.5,
+              colour = "blue3",
+              alpha = 0.3)+
+  theme_linedraw()+
+  theme(legend.position = "none")+
+  labs(title = "Serie storica dei volumi isolata per città",
+       x = "Date",
+       y = "Volumi di vendita")
+
+
+hl = ggplot(data = texas_sale, aes(x=date_full, y=listings,colour = city, group = city))+
+  geom_line()+
+  facet_wrap(~city)+
+  geom_smooth(aes(y=listings),
+              size = 0.5,
+              colour = "blue3",
+              alpha = 0.4)+
+  theme_linedraw()+
+  theme(legend.position = "none")+
+  labs(
+       x = "Date",
+       y = "Annunci")
+
+hv + hl
+```
+
+Si vede chiaramente ora il motivo per cui in figura @fig-facetefficacy, l'efficacia di B-C-S fosse così schiacciante: riesce a ottenere volumi di vendita in rapida crescita, gestendo un volume di annunci in rapido calo. Sostanzialmente sta massimizzando la resa, minimizzando lo sforzo.
+
+Anche Tyler sta totalizzando ottimi volumi di vendita, paragonabili a quelli di B-C-S, ma per farlo gli occorre gestire un numero ben più alto di annunci (cfr. @fig-listvsvolume)
+
+## Volumi negli anni
+
+Nel grafico successivo si mostra l'andamento dei volumi, per le varie città, negli anni osservati.
+
+```{r}
+volume_agg = texas_sale %>%
+  group_by(year, city) %>%
+  summarise(volume_agg = sum(volume), .groups = "drop")
+
+```
+
+```{r, echo=FALSE}
+#| label: img-volagg
+
+ggplot(data = volume_agg, aes(x=year, y=volume_agg, fill = city))+
+  geom_col(position = "dodge",
+           colour = "black",
+           size = .3)+
+  theme_linedraw()+
+  theme(legend.position = "bottom")+
+  labs(title = "Volumi di vendita totali per anno e città",
+       x = "Anni",
+       y = "Volumi totali (M$)")
+```
+
+Nonostante in figura @fig-volhistory si vedano sostanzialmente appaiati, in serie storica, i volumi di B-C-S e Tyler, guardando i volumi aggregati Tyler risulta essere sempre in testa. Questo per via della variabilità dei volumi di B-C-S che mostra dei picchi allineati a Tyler, ma delle valli più profonde, evidentemente praticando prezzi più bassi o vendendo su fasce di prezzo inferiore.
+
+La maggiore concentrazione dei volumi di Tyler le garantisce dunque il primato in termini di fatturato.
+
+Beaumont mostra un buon tasso di crescita, mentre Wichita Falls sostanzialmenet stabile come ci si attendeva
+
+## Volume nei mesi
+
+```{r}
+vol_agg_month = texas_sale %>%
+  group_by(city, month) %>%
+  summarise(vol_agg_month = sum(volume), .groups = "drop")
+
+
+```
+
+```{r, echo=FALSE}
+#| label: img-volaggmonth
+
+ggplot(data = vol_agg_month, aes(x=factor(month), y=vol_agg_month, fill = city))+
+  geom_col(position = "dodge",
+           colour = "black",
+           size = .3)+
+  theme_linedraw()+
+  theme(legend.position = "bottom")+
+  labs(title = "Volumi di vendita totali per mese e città",
+       x = "Mesi",
+       y = "Volumi totali (M$)")
+```
+
+Come già ipotizzato analizzando il grafico @fig-conditionedmonth, troviamo conferma del fatto che ci sia una stagionalità nel mercato immobiliare delle città analizzate.
+
+Il grafico mostra inoltre come B-C-S abbia un netto calo nei volumi di vendita dopo l'estate, mentre Tyler lo abbia molto più dolce e controllato.
+
+Soprattutto la stagionalità, può essere riscontrata con il grafico a barre sovrapposte, dal quale si evince che sia giugno il mese in cui si registrano i volumi maggiori.
+
+```{r, echo=FALSE}
+#| label: img-volaggmonthstack
+
+ggplot(data = vol_agg_month, aes(x=factor(month), y=vol_agg_month, fill = city))+
+  geom_col(position = "stack",
+           colour = "black",
+           size = .3)+
+  theme_linedraw()+
+  theme(legend.position = "bottom")+
+  labs(title = "Volumi di vendita totali per mese e città",
+       x = "Mesi",
+       y = "Volumi totali (M$)")
+```
+
+Da questo grafico invece si nota bene come il contributo sul fatturato mensile, nel periodo successivo all'estate, si riduca drasticamente per B-C-S, a vantaggio di Tyler e Beaumont.
+
+```{r, echo=FALSE}
+#| label: img-volaggmonthcompl
+
+ggplot(data = vol_agg_month, aes(x=factor(month), y=vol_agg_month, fill = city))+
+  geom_col(position = "fill",
+           colour = "black",
+           size = .3)+
+  theme_linedraw()+
+  theme(legend.position = "bottom")+
+  labs(title = "Volumi di vendita totali per mese e città",
+       x = "Mesi",
+       y = "Volumi totali (M$)")
+```
+
+Nel grafico sottostante si va ad integrare quando già mostrato in @volaggmonthstack con l'informazione aggiuntiva dell'anno.
+
+```{r,echo=FALSE}
+#| label: fig-volaggmoye
+
+ggplot(data = texas_sale, aes(x=factor(month), y=volume, fill = city, colour = year))+
+  geom_col(position = "stack",
+           size = .5)+
+  theme_linedraw()+
+  theme(legend.position = "bottom")+
+  labs(title = "Volumi di vendita totali per mese, città e anno",
+       y="Volumi totali di vendita (M$)",
+       x="Mesi")
+```
+
+## Efficienza di vendita
+
+Un'ultima variabile degna di indagine è months_inventory, che indica il numero di mesi necessari per vendere tutti gli annunci attivi.
+
+Nel grafico sotto riportato si ha:
+
+-   in alto a sinistra una visione dell'andamento storico della variabile months_inventory. Si nota una sostanziale diminuzione del tempo necessario a vendere tutti gli annunci attivi in tutte le città tranne Wichita Falls dove rimane sostanzialmente stazionario.
+
+-   Poichè la diminuzione del tempo potrebbe però essere dovuta dalla diminuzione degli annunci attivi, in basso a sinistra si trova l'andamento storico degli annunci gestiti. Come già visto in figura @fig-listvsvolume, Tyler gestisce un numero di annunci di gran lunga maggiore rispetto al resto delle città
+
+-   a destra il grafico in cui si normalizza la variabile months_inventory rispetto a listings. Più l'indicatore sarà basso, meno sarà il tempo necessario per vendere gli annunci. Si evince che Tyler è la città in cui i tempi di vendita di tutti gli annunci sono i più bassi, se paragonati al numero di annunci complessivamente gestiti. Al capo opposto invece Whicita Falls, che ha tempi inferiori rispetto a tutte le altre città, ma con un numero di annunci di gran lunga inferiore.
+
+$$
+Efficienza = \frac{months_{inventory}}{listings}
+$$
+
+```{r, echo=FALSE}
+#| label: patchworkefficiency
+
+eff1 = ggplot(data = texas_sale, aes(x=date_full, y=months_inventory, colour = city))+
+  geom_line()+
+  theme_linedraw()+
+  theme(legend.position = "none")+
+  labs(x = "Date")
+
+eff2 = ggplot(data = texas_sale, aes(x=date_full, y=listings, colour = city))+
+  geom_line()+
+  theme_linedraw()+
+  theme(legend.position = "bottom")+
+  labs(x = "Date")
+
+
+
+texas_sale$efficiency = texas_sale$months_inventory/texas_sale$listings
+
+eff3 = ggplot(data = texas_sale, aes(x=date_full, y=efficiency, colour = city))+
+  geom_line()+
+  theme_linedraw()+
+  theme(legend.position = "none")+
+  labs(x = "Date")
+
+
+( (eff1 / eff2) | eff3 ) +
+  plot_annotation(title = "Mesi per vendere tutti gli annunci ed efficienza")
+
+```
+
+# Conclusioni
+
+Traendo le conclusioni di questa analisi si possono identificare alcuni fattori chiave degli andamenti.
+
+## Volumi di vendita
+
+Dal punto di vista unicamente del fatturato, Tyler è la città che conduce e ha sempre, negli anni, totalizzato il maggior volume di vendita.
+
+B-C-S segue ravvicinata, ma presenta una maggiore dispersione dei volumi di vendita, con picchi molto alti e valli molto basse. Il fenomeno si accentua maggiormente all'aumentare delle vendite.
+
+Poi Beaumont, che pur crescendo nel fatturato, anno su anno, non lo fa alla stessa velocità delle precedenti 2.
+
+Il fanalino di coda e Whicita Falls, dove però si assiste a una stazionarietà nelle vendite tra il primo e l'ultimo anno. Ma negli altri anni ha addirittura avuto una flessione a differenza delle altre città analizzate.
+
+## Stagionalità
+
+In ogni città analizzata, il mercato immobiliare risulta essere chiaramente stagionale: cresce nei volumi di vendita nei mesi che conducono a giugno, dove c'è l'apice, per poi decrescere fino a dicembre.
+
+Wichita Falls risulta essere la città in cui gli effetti della stagionalità, pur presenti, sono molto meno marcati che nel resto del campione.
+
+## Efficacia di vendita
+
+B-C-S è la città che riesce a massimizzare le vendite effettuate rispetto al numero di annunci gestiti. Questo potrebbe implicare una maggiore efficacia degli annunci, soprattutto se la si paragona con la sua diretta "concorrente", Tyler.
+
+Il mercato immobiliare di Tyler infatti, non ha molta differenza con B-C-S in termini di fatturato, ma gestisce un quantitivo di annunci molto più alto. Si consiglia di effettuare ulteriori indagini con le sedi di Tyler per capire perchè gestiscano tutti questi annunci se chiaramente non riescono a convertirli in larga misura.
+
+Per Beaumont e Wichita Falls valgono le solite considerazione già effettuate nei punti precedenti.
+
+## Efficienza nella vendita
+
+Nonostante Tyler converta poco rispetto al quantitativo di annunci gestiti, le conversioni avvengono in un tempo di gran lunga inferiore rispetto a tutte le altre città.
+
+B-C-S seguono dopo Tyler, ma Wichita Falls risulta fanalino di coda anche in questo caso. Le vendite che chiude, le chiude in parecchio tempo
+
+## Consigli
+
+Alla luce di quanto sopra scritto, si consiglia di:
+
+-   Indagare se la stazionarietà nella vendita e l'inefficienza di Wichita Falls siano dovute a fattori interni all'azienda (personale insufficiente, necessità di formazione, ecc.) o intrinseci del mercato. Se fossero fattori interni all'azienda si può facilmente porre rimedio, diversamente si consiglia un'indagine approfondita e focalizzata su Wichita Falls per capire quale strategia di vendita applicare.
+
+-   Indagare come mai B-C-S abbia una riduzione così forte degli annunci di vendita. Non ne risente il fatturato e non è la sola che stia riducendo, ma è quella che lo sta facendo con maggiore rapidità. Se il mercato dovesse improvvisamente contrarsi potrebbe subire molte perdite.
+
+-   Similmente, indagare con Tyler come mai gestisca così tanti annunci. Il volume di vendita è prossimo a quello di B-C-S che però ne gestisce molti meno, a fronte di una politica di prezzo abbastanza simile
+
+-   Indagare con B-C-S come mai esista una fluttuazione così forte dei volumi di vendita
